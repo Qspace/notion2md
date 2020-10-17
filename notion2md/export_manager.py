@@ -2,7 +2,7 @@ import notion
 import os
 from notion.client import NotionClient
 import requests
-from notion2md.exporter import PageBlockExporter
+from exporter import PageBlockExporter
 import json
 # export the markdown file(string).
 def export_cli():
@@ -29,11 +29,6 @@ def export_cli():
     export(exporter)
 
     print("\nExporter successfully exported notion page to markdown")
-
-
-if __name__ == "__main__":
-    export_cli()
-
 
 def parse_token():
     """Get 'token_v2' from the json file.
@@ -75,3 +70,9 @@ def export(exporter):
     exporter.write_file()
     for sub_exporter in exporter.sub_exporters:
         export(sub_exporter)
+
+if __name__ == "__main__":
+    export_cli()
+
+
+

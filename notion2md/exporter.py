@@ -1,20 +1,24 @@
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, date
+import unidecode
 
 class PageBlockExporter:
   def __init__(self,url,client,blog_mode):
     self.client = client
     self.page = self.client.get_block(url)
+    print("my exporting page: {}".format(self.page))
     self.title = self.page.title
     self.bmode = blog_mode
     if self.bmode:
       self.md = self._page_header()
+      print("page header:{}".format(self.md))
       self.file_name = self._set_filename()
     else:
       self.file_name = self.page.title
       self.md = ""
     self.image_dir=""
+    self.img_count=0
     self.download_dir=""
     self.sub_exporters = []
   
@@ -24,7 +28,7 @@ class PageBlockExporter:
       Args:
         directory(Stirng): set empty by default.
     """
-    self.dir = directory + self.title +'/'
+    self.dir = directory + unidecode.unidecode(self.title) +'/'
 
     if not(os.path.isdir(self.dir)):
         os.makedirs(os.path.join(self.dir))
@@ -69,6 +73,7 @@ class PageBlockExporter:
   def create_image_foler(self):
     """create image output directory
     """
+    print("Creating image output directory")
     self.image_dir = os.path.join(self.dir,'image/')
     if not(os.path.isdir(self.image_dir)):
         os.makedirs(os.path.join(self.image_dir))
@@ -86,7 +91,7 @@ class PageBlockExporter:
     if self.image_dir is "":
       self.create_image_foler()
     
-    image_path = self.image_dir + 'img_{0}.png'.format(count)
+    image_path = self.image_dir + '{0}img_{1}.png'.format(self.file_name,count)
     r = requests.get(url, allow_redirects=True)
     open(image_path,'wb').write(r.content)
     return image_path
@@ -122,7 +127,9 @@ class PageBlockExporter:
         header(Stirng): return Front Matter header
     """
     header = "---\n"
+    header += "layout: post \n"
     header += "title: {0}\n".format(self.title)
+    header += "categories: embedded\n"
     try:
       header += "date: {0}\n".format(self._format_date())
     except:
@@ -160,7 +167,7 @@ class PageBlockExporter:
       Returns:
         formatted_date(String): formatted created date
     """
-    date = self.page.get_property("created")
+    date = self.page.get_property("created_time")
     formatted_date = date.strftime('%Y-%m-%d')
     return formatted_date
 
@@ -174,8 +181,9 @@ class PageBlockExporter:
         date_in_name = self._format_date() + "-"
     except:
         print("[Notice] '{0}' has no Created Date".format(self.page.title))
-        date_in_name = ""
-    file_name = date_in_name + self.title.replace(" ","-")
+        date_in_name = date.today().isoformat()+ "-"
+    file_name = date_in_name + unidecode.unidecode(self.title).replace(" ","-")
+    print("File Name: {0}".format(file_name))
     return file_name
   
   def block2md(self,block):
@@ -225,9 +233,10 @@ class PageBlockExporter:
             numbered_list_index += 1
             return str(numbered_list_index)+'. ' + bt
         if btype == "image":
-            img_count += 1
-            img_path = self.image_export(block.source,img_count)
-            return "!"+link_format(img_path,img_path)
+            print("{}, source: {}".format(self.img_count,block.source))
+            self.img_count += 1
+            img_path = self.image_export(block.source,self.img_count)
+            return "!"+link_format(img_path[1:],img_path[1:])
         if btype == "code":
             return "``` "+block.language.lower()+"\n"+block.title+"\n```"
         if btype == "equation":
@@ -252,12 +261,13 @@ class PageBlockExporter:
         if block.children and btype != 'page':
             tapped += 1
             self.page2md(tapped,page=block)
-    
+
   def page2md(self,tapped,page=None):
     """change notion's block to markdown string
     """
+    print("page2md called {}".format(tapped))
     if tapped == 0:
-        img_count = 0
+        self.img_count = 0
         numbered_list_index = 0
     else:
         self.md += '\n'
